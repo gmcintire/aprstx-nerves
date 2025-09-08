@@ -138,39 +138,54 @@ defmodule Aprstx.Config do
   end
 
   defp apply_network_config(config) do
-    # Apply network settings through VintageNet
-    case config["network_mode"]["value"] do
-      "dhcp" ->
-        VintageNet.configure("eth0", %{
-          type: VintageNetEthernet,
-          ipv4: %{method: :dhcp}
-        })
+    # Apply network settings through VintageNet (only on target)
+    # We use apply/3 to avoid compile-time warnings
+    if Code.ensure_loaded?(VintageNet) do
+      case config["network_mode"]["value"] do
+        "dhcp" ->
+          apply(VintageNet, :configure, [
+            "eth0",
+            %{
+              type: VintageNetEthernet,
+              ipv4: %{method: :dhcp}
+            }
+          ])
 
-      "static" ->
-        VintageNet.configure("eth0", %{
-          type: VintageNetEthernet,
-          ipv4: %{
-            method: :static,
-            address: config["static_ip"]["value"],
-            gateway: config["static_gateway"]["value"],
-            name_servers: [config["static_dns"]["value"]]
-          }
-        })
-
-      "wifi" ->
-        VintageNet.configure("wlan0", %{
-          type: VintageNetWiFi,
-          vintage_net_wifi: %{
-            networks: [
-              %{
-                key_mgmt: :wpa_psk,
-                ssid: config["wifi_ssid"]["value"],
-                psk: config["wifi_password"]["value"]
+        "static" ->
+          apply(VintageNet, :configure, [
+            "eth0",
+            %{
+              type: VintageNetEthernet,
+              ipv4: %{
+                method: :static,
+                address: config["static_ip"]["value"],
+                gateway: config["static_gateway"]["value"],
+                name_servers: [config["static_dns"]["value"]]
               }
-            ]
-          },
-          ipv4: %{method: :dhcp}
-        })
+            }
+          ])
+
+        "wifi" ->
+          apply(VintageNet, :configure, [
+            "wlan0",
+            %{
+              type: VintageNetWiFi,
+              vintage_net_wifi: %{
+                networks: [
+                  %{
+                    key_mgmt: :wpa_psk,
+                    ssid: config["wifi_ssid"]["value"],
+                    psk: config["wifi_password"]["value"]
+                  }
+                ]
+              },
+              ipv4: %{method: :dhcp}
+            }
+          ])
+      end
+    else
+      # Not on target, skip network configuration
+      :ok
     end
   end
 
@@ -274,6 +289,9 @@ defmodule Aprstx.Config do
     end)
 
     # Apply the new configuration
-    load_and_apply()
+    case load_and_apply() do
+      :ok -> {:ok, :configured}
+      error -> error
+    end
   end
 end

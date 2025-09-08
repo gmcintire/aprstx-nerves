@@ -9,7 +9,6 @@ defmodule Aprstx.Logger do
   # 10 MB
   @max_file_size 10_485_760
   @max_files 10
-  @log_dir "logs"
 
   defstruct [
     :access_log,
@@ -25,8 +24,22 @@ defmodule Aprstx.Logger do
 
   @impl true
   def init(opts) do
-    log_dir = Keyword.get(opts, :log_dir, @log_dir)
-    File.mkdir_p!(log_dir)
+    # Use /data/logs on Nerves, local logs directory on host
+    default_log_dir = if Mix.target() == :host, do: "logs", else: "/data/logs"
+    initial_log_dir = Keyword.get(opts, :log_dir, default_log_dir)
+
+    # Create log directory if it doesn't exist
+    log_dir =
+      case File.mkdir_p(initial_log_dir) do
+        :ok ->
+          initial_log_dir
+
+        {:error, _} ->
+          # Fallback to temp directory if we can't create the log dir
+          fallback_dir = Path.join(System.tmp_dir!(), "aprstx_logs")
+          File.mkdir_p!(fallback_dir)
+          fallback_dir
+      end
 
     state = %__MODULE__{
       access_log: open_log_file(Path.join(log_dir, "access.log")),

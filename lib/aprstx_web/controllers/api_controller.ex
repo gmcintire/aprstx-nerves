@@ -37,6 +37,20 @@ defmodule AprstxWeb.ApiController do
     json(conn, %{status: "ok", message: "Configuration update not yet implemented"})
   end
 
+  def reboot(conn, _params) do
+    # Schedule reboot in 1 second
+    if Mix.target() == :host do
+      json(conn, %{status: "error", message: "Cannot reboot in development mode"})
+    else
+      Task.start(fn ->
+        Process.sleep(1000)
+        System.cmd("reboot", [])
+      end)
+
+      json(conn, %{status: "ok", message: "Rebooting..."})
+    end
+  end
+
   defp check_service(module) do
     case Process.whereis(module) do
       nil ->

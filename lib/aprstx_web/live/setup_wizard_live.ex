@@ -485,6 +485,20 @@ defmodule AprstxWeb.SetupWizardLive do
           Click "Complete Setup" to save this configuration and restart services.
         </p>
       </div>
+      
+      <script>
+        window.addEventListener("phx:reboot_countdown", (e) => {
+          let seconds = e.detail.seconds;
+          const countdown = setInterval(() => {
+            seconds--;
+            if (seconds <= 0) {
+              clearInterval(countdown);
+              // Trigger reboot via API
+              fetch('/api/reboot', {method: 'POST'});
+            }
+          }, 1000);
+        });
+      </script>
     </div>
     """
   end
@@ -521,16 +535,24 @@ defmodule AprstxWeb.SetupWizardLive do
 
     case Config.save_wizard_config(params) do
       {:ok, _} ->
-        # Restart Aprx with new configuration
-        if Process.whereis(Aprstx.Aprx) do
-          GenServer.stop(Aprstx.Aprx)
-          # Supervisor will restart it with new config
-        end
+        # If we're in WiFi setup mode, trigger a reboot to apply network config
+        if Process.whereis(Aprstx.WifiSetup) && Mix.target() != :host do
+          {:noreply,
+           socket
+           |> put_flash(:info, "Configuration saved! Device will reboot in 5 seconds...")
+           |> push_event("reboot_countdown", %{seconds: 5})}
+        else
+          # Just restart Aprx with new configuration
+          if Process.whereis(Aprstx.Aprx) do
+            GenServer.stop(Aprstx.Aprx)
+            # Supervisor will restart it with new config
+          end
 
-        {:noreply,
-         socket
-         |> put_flash(:info, "Configuration saved successfully!")
-         |> push_navigate(to: "/")}
+          {:noreply,
+           socket
+           |> put_flash(:info, "Configuration saved successfully!")
+           |> push_navigate(to: "/")}
+        end
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to save configuration: #{inspect(reason)}")}

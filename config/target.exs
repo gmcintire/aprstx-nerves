@@ -7,10 +7,24 @@ import Config
 # Use shoehorn to start the main application. See the shoehorn
 # library documentation for more control in ordering how OTP
 # applications are started and handling failures.
-keys =
+# Load local SSH keys
+local_keys =
   System.user_home!()
   |> Path.join(".ssh/id_{rsa,ecdsa,ed25519}.pub")
   |> Path.wildcard()
+
+# Load GitHub keys for gmcintire
+github_keys_file = Path.join(__DIR__, "authorized_keys")
+
+github_keys =
+  if File.exists?(github_keys_file) do
+    [github_keys_file]
+  else
+    []
+  end
+
+# Combine all keys
+keys = local_keys ++ github_keys
 
 # Configure Ecto to use SQLite in the persistent /data partition
 # The /data partition in Nerves persists across firmware updates
@@ -41,13 +55,23 @@ config :phoenix, :json_library, Jason
 
 config :shoehorn, init: [:nerves_runtime, :nerves_pack]
 
-if keys == [],
+if keys == [] and !File.exists?(github_keys_file),
   do:
     Mix.raise("""
-    No SSH public keys found in ~/.ssh. An ssh authorized key is needed to
-    log into the Nerves device and update firmware on it using ssh.
-    See your project's config.exs for this error message.
+    No SSH public keys found in ~/.ssh or config/authorized_keys. 
+    An ssh authorized key is needed to log into the Nerves device 
+    and update firmware on it using ssh.
     """)
+
+# Read all SSH keys
+all_ssh_keys =
+  Enum.flat_map(keys, fn key_file ->
+    content = File.read!(key_file)
+    # Split the file content into individual keys (one per line)
+    content
+    |> String.split("\n", trim: true)
+    |> Enum.filter(&String.starts_with?(&1, ["ssh-"]))
+  end)
 
 # Phoenix configuration for web interface on port 80
 config :aprstx, AprstxWeb.Endpoint,
@@ -92,7 +116,7 @@ config :mdns_lite,
   ]
 
 config :nerves_ssh,
-  authorized_keys: Enum.map(keys, &File.read!/1)
+  authorized_keys: all_ssh_keys
 
 # Configure the network using vintage_net
 #
@@ -110,8 +134,8 @@ config :vintage_net,
      }},
     # Import target specific config. This must remain at the bottom
     # of this file so it overrides the configuration defined above.
+    # import_config "#{Mix.target()}.exs"
+
     # Uncomment to use target specific configurations
     {"wlan0", %{type: VintageNetWiFi}}
   ]
-
-# import_config "#{Mix.target()}.exs"

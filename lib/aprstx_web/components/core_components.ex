@@ -10,7 +10,7 @@ defmodule AprstxWeb.CoreComponents do
   attr(:flash, :map, required: true)
   attr(:id, :string, default: "flash")
 
-  def flash(%{flash: %{} = flash} = assigns) do
+  def flash(%{flash: %{} = _flash} = assigns) do
     ~H"""
     <div id={@id}>
       <%= if info = Phoenix.Flash.get(@flash, :info) do %>

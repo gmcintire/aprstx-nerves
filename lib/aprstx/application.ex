@@ -42,6 +42,7 @@ defmodule Aprstx.Application do
         # UDP listener (for UDP kiss, etc)
         {Aprstx.UdpListener, config[:udp] || []}
       ] ++
+        wifi_setup_children() ++
         gps_children(config) ++
         roaming_children(config) ++
         kiss_children(config) ++
@@ -85,6 +86,21 @@ defmodule Aprstx.Application do
   def config_change(changed, _new, removed) do
     AprstxWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp wifi_setup_children do
+    # Only start WiFi setup on target devices with WiFi capability
+    if Mix.target() != :host and has_wifi?() do
+      [{Aprstx.WifiSetup, []}]
+    else
+      []
+    end
+  end
+
+  defp has_wifi? do
+    # Check if the target has WiFi capability
+    # Pi 3 has built-in WiFi, Pi Zero W has WiFi, etc.
+    Mix.target() in [:rpi3, :rpi3a, :rpi4, :rpi0_w, :rpi5]
   end
 
   defp gps_children(config) do
