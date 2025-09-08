@@ -49,6 +49,8 @@ defmodule Aprstx.MixProject do
       {:toolshed, "~> 0.4.0"},
       {:plug_cowboy, "~> 2.5"},
       {:jason, "~> 1.4"},
+      {:circuits_uart, "~> 1.5"},
+      {:styler, "~> 1.7", only: [:dev, :test], runtime: false},
 
       # Allow Nerves.Runtime on host to support development, testing and CI.
       # See config/host.exs for usage.

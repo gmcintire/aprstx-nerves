@@ -3,6 +3,7 @@ defmodule Aprstx.Stats do
   Statistics collection and reporting for APRS server.
   """
   use GenServer
+
   require Logger
 
   defstruct [
@@ -39,28 +40,31 @@ defmodule Aprstx.Stats do
 
   @impl true
   def handle_cast({:packet_received, packet}, state) do
-    new_state = state
-    |> Map.update!(:packets_received, &(&1 + 1))
-    |> Map.update!(:bytes_received, &(&1 + byte_size(packet.raw)))
-    |> update_packet_types(packet.type)
+    new_state =
+      state
+      |> Map.update!(:packets_received, &(&1 + 1))
+      |> Map.update!(:bytes_received, &(&1 + byte_size(packet.raw)))
+      |> update_packet_types(packet.type)
 
     {:noreply, new_state}
   end
 
   @impl true
   def handle_cast({:packet_sent, _packet, bytes}, state) do
-    new_state = state
-    |> Map.update!(:packets_sent, &(&1 + 1))
-    |> Map.update!(:bytes_sent, &(&1 + bytes))
+    new_state =
+      state
+      |> Map.update!(:packets_sent, &(&1 + 1))
+      |> Map.update!(:bytes_sent, &(&1 + bytes))
 
     {:noreply, new_state}
   end
 
   @impl true
   def handle_cast({:client_connected, _client_id}, state) do
-    new_state = state
-    |> Map.update!(:clients_current, &(&1 + 1))
-    |> Map.update!(:clients_total, &(&1 + 1))
+    new_state =
+      state
+      |> Map.update!(:clients_current, &(&1 + 1))
+      |> Map.update!(:clients_total, &(&1 + 1))
 
     {:noreply, new_state}
   end
@@ -93,7 +97,7 @@ defmodule Aprstx.Stats do
 
   defp format_stats(state) do
     uptime = System.monotonic_time(:second) - state.uptime_start
-    
+
     %{
       uptime_seconds: uptime,
       packets: %{
@@ -117,6 +121,7 @@ defmodule Aprstx.Stats do
   defp calculate_rate(count, seconds) when seconds > 0 do
     Float.round(count / seconds, 2)
   end
+
   defp calculate_rate(_, _), do: 0.0
 
   defp schedule_report do

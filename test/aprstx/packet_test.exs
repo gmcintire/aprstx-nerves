@@ -1,11 +1,12 @@
 defmodule Aprstx.PacketTest do
   use ExUnit.Case
+
   alias Aprstx.Packet
 
   describe "parse/1" do
     test "parses a basic position packet" do
       raw = "N0CALL>APRS,TCPIP*:!3553.50N/10602.50W>Test packet"
-      
+
       assert {:ok, packet} = Packet.parse(raw)
       assert packet.source == "N0CALL"
       assert packet.destination == "APRS"
@@ -16,7 +17,7 @@ defmodule Aprstx.PacketTest do
 
     test "parses a message packet" do
       raw = "N0CALL>APRS::N1CALL   :Hello World{001"
-      
+
       assert {:ok, packet} = Packet.parse(raw)
       assert packet.source == "N0CALL"
       assert packet.destination == "APRS"
@@ -26,7 +27,7 @@ defmodule Aprstx.PacketTest do
 
     test "parses a weather packet" do
       raw = "N0CALL>APRS:_10090556c220s004g005t077r000p000P000h50b09900"
-      
+
       assert {:ok, packet} = Packet.parse(raw)
       assert packet.type == :weather
     end
@@ -48,7 +49,7 @@ defmodule Aprstx.PacketTest do
         path: ["TCPIP*"],
         data: "!3553.50N/10602.50W>Test"
       }
-      
+
       encoded = Packet.encode(packet)
       assert encoded == "N0CALL>APRS,TCPIP*:!3553.50N/10602.50W>Test"
     end
@@ -60,7 +61,7 @@ defmodule Aprstx.PacketTest do
         path: [],
         data: ">Status"
       }
-      
+
       encoded = Packet.encode(packet)
       assert encoded == "N0CALL>APRS:>Status"
     end
@@ -90,7 +91,7 @@ defmodule Aprstx.PacketTest do
         type: :position_no_timestamp,
         data: "!3553.50N/10602.50W>Test"
       }
-      
+
       assert {:ok, pos} = Packet.extract_position(packet)
       assert_in_delta pos.latitude, 35.891666, 0.001
       assert_in_delta pos.longitude, -106.041666, 0.001
@@ -101,7 +102,7 @@ defmodule Aprstx.PacketTest do
         type: :message,
         data: ":N1CALL   :Hello"
       }
-      
+
       assert nil == Packet.extract_position(packet)
     end
 
@@ -110,7 +111,7 @@ defmodule Aprstx.PacketTest do
         type: :position_with_timestamp,
         data: "/092345z4903.50N/07201.75W>Test"
       }
-      
+
       assert {:ok, pos} = Packet.extract_position(packet)
       assert_in_delta pos.latitude, 49.058333, 0.001
       assert_in_delta pos.longitude, -72.029166, 0.001

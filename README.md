@@ -4,13 +4,35 @@ An APRS-IS (Automatic Packet Reporting System - Internet Service) server impleme
 
 ## Features
 
+### Core APRS-IS Functionality
 - **APRS-IS Server**: Full APRS-IS server implementation on port 14580
 - **Packet Parsing**: Complete APRS packet parsing and encoding
-- **Client Management**: Handle multiple simultaneous client connections
+- **Client Management**: Handle multiple simultaneous client connections  
 - **Packet Filtering**: Support for standard APRS-IS filter strings
 - **APRS-IS Uplink**: Connect to upstream APRS-IS servers
-- **Statistics**: Real-time statistics tracking and reporting
-- **HTTP API**: REST API for monitoring and control on port 8080
+- **Q-Construct Processing**: Proper path manipulation and loop prevention
+- **Duplicate Detection**: Sliding window duplicate packet filtering
+
+### Network Interfaces
+- **TCP Server**: Standard APRS-IS on port 14580
+- **SSL/TLS Server**: Secure connections on port 24580
+- **UDP Listener**: Bidirectional UDP support on port 8080
+- **KISS TNC**: Serial and TCP KISS interface support
+- **Peer Connections**: Server-to-server interconnection on port 10152
+
+### Advanced Features
+- **Message Handling**: APRS message processing with acknowledgments
+- **History/Replay**: Packet history buffer with client replay
+- **Access Control Lists**: IP and callsign based access control
+- **Rate Limiting**: Automatic flood protection and rate limiting
+- **AX.25 Support**: Full AX.25 packet encoding/decoding
+
+### Monitoring & Management
+- **HTTP API**: REST API for monitoring on port 8080
+- **Status Page**: Web interface with real-time stats on port 8081
+- **Prometheus Metrics**: Export metrics in Prometheus format
+- **Comprehensive Logging**: Rotating log files with packet/access/error logs
+- **Statistics Tracking**: Detailed performance and usage statistics
 - **Nerves Support**: Run on Raspberry Pi and other embedded platforms
 
 ## Architecture

@@ -14,33 +14,35 @@ defmodule Aprstx.Packet do
   ]
 
   @type t :: %__MODULE__{
-    source: String.t(),
-    destination: String.t(),
-    path: [String.t()],
-    data: String.t(),
-    raw: String.t(),
-    timestamp: DateTime.t(),
-    type: atom()
-  }
+          source: String.t(),
+          destination: String.t(),
+          path: [String.t()],
+          data: String.t(),
+          raw: String.t(),
+          timestamp: DateTime.t(),
+          type: atom()
+        }
 
   @doc """
   Parse an APRS packet from raw string format.
   """
   def parse(raw) when is_binary(raw) do
     raw = String.trim(raw)
-    
+
     with {:ok, header, data} <- split_header_data(raw),
-         {:ok, source, destination, path} <- parse_header(header),
-         type <- detect_packet_type(data) do
-      {:ok, %__MODULE__{
-        source: source,
-        destination: destination,
-        path: path,
-        data: data,
-        raw: raw,
-        timestamp: DateTime.utc_now(),
-        type: type
-      }}
+         {:ok, source, destination, path} <- parse_header(header) do
+      type = detect_packet_type(data)
+
+      {:ok,
+       %__MODULE__{
+         source: source,
+         destination: destination,
+         path: path,
+         data: data,
+         raw: raw,
+         timestamp: DateTime.utc_now(),
+         type: type
+       }}
     end
   end
 
@@ -57,9 +59,11 @@ defmodule Aprstx.Packet do
         case String.split(rest, ",") do
           [destination | path] ->
             {:ok, source, destination, path}
+
           _ ->
             {:error, :invalid_header}
         end
+
       _ ->
         {:error, :invalid_header}
     end
@@ -100,12 +104,12 @@ defmodule Aprstx.Packet do
   end
 
   defp encode_header(%__MODULE__{source: source, destination: dest, path: path}) do
-    path_str = 
+    path_str =
       case path do
         [] -> ""
         _ -> "," <> Enum.join(path, ",")
       end
-    
+
     "#{source}>#{dest}#{path_str}"
   end
 
@@ -113,15 +117,28 @@ defmodule Aprstx.Packet do
   Validate an APRS callsign.
   """
   def valid_callsign?(callsign) when is_binary(callsign) do
-    callsign
-    |> String.upcase()
-    |> String.match?(~r/^[A-Z0-9]{1,6}(-[0-9]{1,2})?$/)
+    case String.split(String.upcase(callsign), "-") do
+      [call] ->
+        # Must have at least one letter and be 1-6 characters
+        String.match?(call, ~r/^[A-Z0-9]{1,6}$/) and
+          String.match?(call, ~r/[A-Z]/)
+
+      [call, ssid] ->
+        # Must have at least one letter, 1-6 characters, and SSID 0-15
+        String.match?(call, ~r/^[A-Z0-9]{1,6}$/) and
+          String.match?(call, ~r/[A-Z]/) and
+          String.match?(ssid, ~r/^[0-9]{1,2}$/) and
+          String.to_integer(ssid) <= 15
+
+      _ ->
+        false
+    end
   end
 
   @doc """
   Extract position data from a packet if available.
   """
-  def extract_position(%__MODULE__{type: type, data: data}) 
+  def extract_position(%__MODULE__{type: type, data: data})
       when type in [:position_no_timestamp, :position_with_timestamp] do
     parse_position_data(data)
   end
@@ -134,6 +151,7 @@ defmodule Aprstx.Packet do
         lat = parse_coordinate(lat_deg, lat_min, lat_dir, :latitude)
         lon = parse_coordinate(lon_deg, lon_min, lon_dir, :longitude)
         {:ok, %{latitude: lat, longitude: lon}}
+
       _ ->
         {:error, :invalid_position}
     end
@@ -142,8 +160,8 @@ defmodule Aprstx.Packet do
   defp parse_coordinate(deg, min, dir, type) do
     degrees = String.to_integer(deg)
     minutes = String.to_float(min)
-    decimal = degrees + (minutes / 60.0)
-    
+    decimal = degrees + minutes / 60.0
+
     case {type, dir} do
       {:latitude, "S"} -> -decimal
       {:latitude, "N"} -> decimal

@@ -9,9 +9,9 @@ defmodule Aprstx.Filter do
   ]
 
   @type t :: %__MODULE__{
-    type: atom(),
-    params: map()
-  }
+          type: atom(),
+          params: map()
+        }
 
   @doc """
   Parse a filter string into filter structures.
@@ -29,6 +29,7 @@ defmodule Aprstx.Filter do
     case String.split(part, "/", parts: 2) do
       [type, params] ->
         parse_filter_type(type, params)
+
       _ ->
         nil
     end
@@ -41,6 +42,7 @@ defmodule Aprstx.Filter do
           type: :range,
           params: %{latitude: lat, longitude: lon, range: range}
         }
+
       _ ->
         nil
     end
@@ -48,6 +50,7 @@ defmodule Aprstx.Filter do
 
   defp parse_filter_type("p", params) do
     prefixes = String.split(params, "/")
+
     %__MODULE__{
       type: :prefix,
       params: %{prefixes: prefixes}
@@ -56,6 +59,7 @@ defmodule Aprstx.Filter do
 
   defp parse_filter_type("b", params) do
     callsigns = String.split(params, "/")
+
     %__MODULE__{
       type: :budlist,
       params: %{callsigns: callsigns}
@@ -64,6 +68,7 @@ defmodule Aprstx.Filter do
 
   defp parse_filter_type("o", params) do
     objects = String.split(params, "/")
+
     %__MODULE__{
       type: :object,
       params: %{objects: objects}
@@ -72,6 +77,7 @@ defmodule Aprstx.Filter do
 
   defp parse_filter_type("t", params) do
     types = parse_type_params(params)
+
     %__MODULE__{
       type: :type,
       params: %{types: types}
@@ -80,6 +86,7 @@ defmodule Aprstx.Filter do
 
   defp parse_filter_type("s", params) do
     symbols = String.split(params, "/")
+
     %__MODULE__{
       type: :symbol,
       params: %{symbols: symbols}
@@ -98,6 +105,7 @@ defmodule Aprstx.Filter do
         else
           _ -> :error
         end
+
       _ ->
         :error
     end
@@ -134,13 +142,16 @@ defmodule Aprstx.Filter do
   defp matches_filter?(packet, %__MODULE__{type: :range} = filter) do
     case Aprstx.Packet.extract_position(packet) do
       {:ok, %{latitude: lat, longitude: lon}} ->
-        distance = calculate_distance(
-          filter.params.latitude,
-          filter.params.longitude,
-          lat,
-          lon
-        )
+        distance =
+          calculate_distance(
+            filter.params.latitude,
+            filter.params.longitude,
+            lat,
+            lon
+          )
+
         distance <= filter.params.range
+
       _ ->
         false
     end
@@ -155,8 +166,8 @@ defmodule Aprstx.Filter do
   defp matches_filter?(packet, %__MODULE__{type: :budlist} = filter) do
     Enum.any?(filter.params.callsigns, fn callsign ->
       packet.source == callsign or
-      packet.destination == callsign or
-      callsign in packet.path
+        packet.destination == callsign or
+        callsign in packet.path
     end)
   end
 
@@ -169,34 +180,59 @@ defmodule Aprstx.Filter do
 
   defp map_packet_type(type) do
     case type do
-      t when t in [:position_no_timestamp, :position_with_timestamp,
-                   :position_with_timestamp_msg, :position_with_timestamp_compressed] ->
+      t
+      when t in [
+             :position_no_timestamp,
+             :position_with_timestamp,
+             :position_with_timestamp_msg,
+             :position_with_timestamp_compressed
+           ] ->
         :position
-      :message -> :message
-      :object -> :object
-      :item -> :item
-      :status -> :status
-      :query -> :query
-      :telemetry -> :telemetry
-      :weather -> :weather
-      :user_defined -> :user_defined
-      _ -> nil
+
+      :message ->
+        :message
+
+      :object ->
+        :object
+
+      :item ->
+        :item
+
+      :status ->
+        :status
+
+      :query ->
+        :query
+
+      :telemetry ->
+        :telemetry
+
+      :weather ->
+        :weather
+
+      :user_defined ->
+        :user_defined
+
+      _ ->
+        nil
     end
   end
 
   defp calculate_distance(lat1, lon1, lat2, lon2) do
     # Haversine formula
-    r = 6371.0  # Earth radius in km
-    
+    # Earth radius in km
+    r = 6371.0
+
     dlat = (lat2 - lat1) * :math.pi() / 180.0
     dlon = (lon2 - lon1) * :math.pi() / 180.0
-    
-    a = :math.sin(dlat/2) * :math.sin(dlat/2) +
-        :math.cos(lat1 * :math.pi() / 180.0) * 
-        :math.cos(lat2 * :math.pi() / 180.0) *
-        :math.sin(dlon/2) * :math.sin(dlon/2)
-    
-    c = 2 * :math.atan2(:math.sqrt(a), :math.sqrt(1-a))
+
+    a =
+      :math.sin(dlat / 2) * :math.sin(dlat / 2) +
+        :math.cos(lat1 * :math.pi() / 180.0) *
+          :math.cos(lat2 * :math.pi() / 180.0) *
+          :math.sin(dlon / 2) * :math.sin(dlon / 2)
+
+    c = 2 * :math.atan2(:math.sqrt(a), :math.sqrt(1 - a))
     r * c
   end
 end

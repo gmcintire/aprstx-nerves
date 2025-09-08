@@ -3,6 +3,7 @@ defmodule Aprstx.Uplink do
   APRS-IS uplink connection management.
   """
   use GenServer
+
   require Logger
 
   defstruct [
@@ -24,7 +25,7 @@ defmodule Aprstx.Uplink do
   def init(opts) do
     state = %__MODULE__{
       host: Keyword.get(opts, :host, "rotate.aprs2.net"),
-      port: Keyword.get(opts, :port, 14580),
+      port: Keyword.get(opts, :port, 14_580),
       callsign: Keyword.fetch!(opts, :callsign),
       passcode: Keyword.fetch!(opts, :passcode),
       filter: Keyword.get(opts, :filter, ""),
@@ -40,7 +41,7 @@ defmodule Aprstx.Uplink do
       {:ok, socket} ->
         Logger.info("Connected to APRS-IS server #{state.host}:#{state.port}")
         {:noreply, %{state | socket: socket, connected: true}}
-      
+
       {:error, reason} ->
         Logger.error("Failed to connect to APRS-IS: #{inspect(reason)}")
         schedule_reconnect()
@@ -61,7 +62,7 @@ defmodule Aprstx.Uplink do
 
   @impl true
   def handle_info({:tcp_closed, socket}, %{socket: socket} = state) do
-    Logger.warn("APRS-IS connection closed")
+    Logger.warning("APRS-IS connection closed")
     schedule_reconnect()
     {:noreply, %{state | connected: false, socket: nil}}
   end
@@ -80,16 +81,18 @@ defmodule Aprstx.Uplink do
       encoded = Aprstx.Packet.encode(packet)
       :gen_tcp.send(state.socket, encoded <> "\r\n")
     end
+
     {:noreply, state}
   end
 
   defp connect_to_server(state) do
-    with {:ok, socket} <- :gen_tcp.connect(
-           String.to_charlist(state.host),
-           state.port,
-           [:binary, packet: :line, active: true, keepalive: true],
-           5000
-         ),
+    with {:ok, socket} <-
+           :gen_tcp.connect(
+             String.to_charlist(state.host),
+             state.port,
+             [:binary, packet: :line, active: true, keepalive: true],
+             5000
+           ),
          :ok <- authenticate(socket, state) do
       {:ok, socket}
     end
@@ -97,19 +100,19 @@ defmodule Aprstx.Uplink do
 
   defp authenticate(socket, state) do
     login = "user #{state.callsign} pass #{state.passcode} vers aprstx-elixir 1.0"
-    login = if state.filter != "", do: login <> " filter #{state.filter}", else: login
-    
+    login = if state.filter == "", do: login, else: login <> " filter #{state.filter}"
+
     :gen_tcp.send(socket, login <> "\r\n")
   end
 
   defp process_uplink_data(data) do
     data = String.trim(data)
-    
-    unless String.starts_with?(data, "#") do
+
+    if !String.starts_with?(data, "#") do
       case Aprstx.Packet.parse(data) do
         {:ok, packet} ->
           GenServer.cast(Aprstx.Server, {:broadcast, packet, :uplink})
-        
+
         {:error, _reason} ->
           :ok
       end
