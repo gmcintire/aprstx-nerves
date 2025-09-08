@@ -59,6 +59,17 @@ defmodule Aprstx.MessageHandler do
     end
   end
 
+  @impl true
+  def handle_call({:get_recent_messages, limit}, _from, state) do
+    messages = Enum.take(state.recent_messages, limit)
+    {:reply, messages, state}
+  end
+
+  @impl true
+  def handle_call(:get_bulletins, _from, state) do
+    {:reply, state.bulletins, state}
+  end
+
   defp parse_message(data) when is_binary(data) do
     cond do
       # Standard message format ":ADDRESSEE:Message text{msgid"
@@ -251,21 +262,10 @@ defmodule Aprstx.MessageHandler do
     GenServer.call(__MODULE__, {:get_recent_messages, limit})
   end
 
-  @impl true
-  def handle_call({:get_recent_messages, limit}, _from, state) do
-    messages = Enum.take(state.recent_messages, limit)
-    {:reply, messages, state}
-  end
-
   @doc """
   Get active bulletins.
   """
   def get_bulletins do
     GenServer.call(__MODULE__, :get_bulletins)
-  end
-
-  @impl true
-  def handle_call(:get_bulletins, _from, state) do
-    {:reply, state.bulletins, state}
   end
 end

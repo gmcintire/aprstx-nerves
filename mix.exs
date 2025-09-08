@@ -52,6 +52,17 @@ defmodule Aprstx.MixProject do
       {:circuits_uart, "~> 1.5"},
       {:styler, "~> 1.7", only: [:dev, :test], runtime: false},
 
+      # Phoenix and database
+      {:phoenix, "~> 1.7.0"},
+      {:phoenix_html, "~> 3.3"},
+      {:phoenix_live_view, "~> 0.20.0"},
+      {:phoenix_live_dashboard, "~> 0.8"},
+      {:ecto_sql, "~> 3.10"},
+      {:ecto_sqlite3, "~> 0.12"},
+      {:phoenix_ecto, "~> 4.4"},
+      {:esbuild, "~> 0.7", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
+
       # Allow Nerves.Runtime on host to support development, testing and CI.
       # See config/host.exs for usage.
       {:nerves_runtime, "~> 0.13.0"},

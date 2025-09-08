@@ -94,13 +94,25 @@ defmodule Aprstx.ACL do
   end
 
   @impl true
+  def handle_call(:get_stats, _from, state) do
+    stats = %{
+      blacklisted_count: MapSet.size(state.blacklist),
+      whitelisted_count: MapSet.size(state.whitelist),
+      monitored_clients: map_size(state.rate_limits),
+      flood_protection: state.flood_protection
+    }
+
+    {:reply, stats, state}
+  end
+
+  @impl true
   def handle_call({:check_send, client_info, _packet}, _from, state) do
     if state.flood_protection.enabled do
       case check_rate_limit(client_info, state) do
         :ok ->
           {:reply, true, state}
 
-        {:exceeded, reason} ->
+        {:flood, reason} ->
           Logger.warning("Rate limit exceeded for #{client_info.callsign}: #{reason}")
           {:reply, false, state}
       end
@@ -168,6 +180,12 @@ defmodule Aprstx.ACL do
   end
 
   @impl true
+  def handle_cast({:update_flood_protection, settings}, state) do
+    new_flood_protection = Map.merge(state.flood_protection, settings)
+    {:noreply, %{state | flood_protection: new_flood_protection}}
+  end
+
+  @impl true
   def handle_info(:cleanup, state) do
     now = System.monotonic_time(:second)
     # Keep last minute of data
@@ -191,6 +209,17 @@ defmodule Aprstx.ACL do
 
     schedule_cleanup()
     {:noreply, %{state | rate_limits: new_rate_limits}}
+  end
+
+  @impl true
+  def handle_info({:unban, client_info}, state) do
+    new_blacklist =
+      state.blacklist
+      |> MapSet.delete({:ip, client_info.ip})
+      |> MapSet.delete({:callsign, client_info.callsign})
+
+    Logger.info("Unbanning #{client_info.callsign}")
+    {:noreply, %{state | blacklist: new_blacklist}}
   end
 
   defp load_rules(opts) do
@@ -278,17 +307,6 @@ defmodule Aprstx.ACL do
     %{state | blacklist: new_blacklist}
   end
 
-  @impl true
-  def handle_info({:unban, client_info}, state) do
-    new_blacklist =
-      state.blacklist
-      |> MapSet.delete({:ip, client_info.ip})
-      |> MapSet.delete({:callsign, client_info.callsign})
-
-    Logger.info("Unbanning #{client_info.callsign}")
-    {:noreply, %{state | blacklist: new_blacklist}}
-  end
-
   defp cleanup_old_entries(entries, cutoff) do
     Enum.filter(entries, fn {time, _} -> time > cutoff end)
   end
@@ -308,28 +326,10 @@ defmodule Aprstx.ACL do
     GenServer.call(__MODULE__, :get_stats)
   end
 
-  @impl true
-  def handle_call(:get_stats, _from, state) do
-    stats = %{
-      blacklisted_count: MapSet.size(state.blacklist),
-      whitelisted_count: MapSet.size(state.whitelist),
-      monitored_clients: map_size(state.rate_limits),
-      flood_protection: state.flood_protection
-    }
-
-    {:reply, stats, state}
-  end
-
   @doc """
   Update flood protection settings.
   """
   def update_flood_protection(settings) do
     GenServer.cast(__MODULE__, {:update_flood_protection, settings})
-  end
-
-  @impl true
-  def handle_cast({:update_flood_protection, settings}, state) do
-    new_flood_protection = Map.merge(state.flood_protection, settings)
-    {:noreply, %{state | flood_protection: new_flood_protection}}
   end
 end

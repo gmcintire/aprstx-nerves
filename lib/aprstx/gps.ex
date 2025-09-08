@@ -125,6 +125,11 @@ defmodule Aprstx.GPS do
     {:noreply, new_state}
   end
 
+  @impl true
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
+    {:noreply, %{state | subscribers: List.delete(state.subscribers, pid)}}
+  end
+
   defp extract_nmea_sentences(buffer) do
     lines = String.split(buffer, "\n")
 
@@ -208,7 +213,7 @@ defmodule Aprstx.GPS do
   end
 
   defp parse_gga(parts) when length(parts) >= 14 do
-    [_, time, lat, lat_dir, lon, lon_dir, fix, sats, hdop, alt, alt_unit | _] = parts
+    [_, time, lat, lat_dir, lon, lon_dir, fix, sats, hdop, alt, _alt_unit | _] = parts
 
     data = %{
       time: parse_time(time),
@@ -460,13 +465,6 @@ defmodule Aprstx.GPS do
     {:reply, state.current_position, state}
   end
 
-  @doc """
-  Get GPS status.
-  """
-  def get_status do
-    GenServer.call(__MODULE__, :get_status)
-  end
-
   @impl true
   def handle_call(:get_status, _from, state) do
     status = %{
@@ -483,6 +481,13 @@ defmodule Aprstx.GPS do
   end
 
   @doc """
+  Get GPS status.
+  """
+  def get_status do
+    GenServer.call(__MODULE__, :get_status)
+  end
+
+  @doc """
   Subscribe to GPS updates.
   """
   def subscribe do
@@ -493,11 +498,6 @@ defmodule Aprstx.GPS do
   def handle_cast({:subscribe, pid}, state) do
     Process.monitor(pid)
     {:noreply, %{state | subscribers: [pid | state.subscribers]}}
-  end
-
-  @impl true
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
-    {:noreply, %{state | subscribers: List.delete(state.subscribers, pid)}}
   end
 
   @doc """

@@ -72,6 +72,11 @@ defmodule Aprstx.DuplicateFilter do
   end
 
   @impl true
+  def handle_call(:get_stats, _from, state) do
+    {:reply, state.stats, state}
+  end
+
+  @impl true
   def handle_cast({:record, packet}, state) do
     key = generate_key(packet)
     now = System.monotonic_time(:millisecond)
@@ -109,10 +114,5 @@ defmodule Aprstx.DuplicateFilter do
 
   def get_stats do
     GenServer.call(__MODULE__, :get_stats)
-  end
-
-  @impl true
-  def handle_call(:get_stats, _from, state) do
-    {:reply, state.stats, state}
   end
 end

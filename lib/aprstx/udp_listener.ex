@@ -233,13 +233,6 @@ defmodule Aprstx.UdpListener do
     {:noreply, %{state | stats: stats}}
   end
 
-  @doc """
-  Broadcast packet to all UDP clients.
-  """
-  def broadcast(packet) do
-    GenServer.cast(__MODULE__, {:broadcast, packet})
-  end
-
   @impl true
   def handle_cast({:broadcast, packet}, state) do
     if state.mode == :bidirectional do
@@ -262,14 +255,19 @@ defmodule Aprstx.UdpListener do
     end
   end
 
-  defp format_ip({a, b, c, d}), do: "#{a}.#{b}.#{c}.#{d}"
-  defp format_ip(ip), do: inspect(ip)
+  @impl true
+  def handle_cast(:cleanup_clients, state) do
+    # 5 minutes
+    cutoff = DateTime.add(DateTime.utc_now(), -300, :second)
 
-  @doc """
-  Get UDP listener statistics.
-  """
-  def get_stats do
-    GenServer.call(__MODULE__, :get_stats)
+    new_clients =
+      state.clients
+      |> Enum.filter(fn {_key, info} ->
+        DateTime.after?(info.last_seen, cutoff)
+      end)
+      |> Map.new()
+
+    {:noreply, %{state | clients: new_clients}}
   end
 
   @impl true
@@ -284,25 +282,27 @@ defmodule Aprstx.UdpListener do
     {:reply, stats, state}
   end
 
+  defp format_ip({a, b, c, d}), do: "#{a}.#{b}.#{c}.#{d}"
+  defp format_ip(ip), do: inspect(ip)
+
+  @doc """
+  Broadcast packet to all UDP clients.
+  """
+  def broadcast(packet) do
+    GenServer.cast(__MODULE__, {:broadcast, packet})
+  end
+
+  @doc """
+  Get UDP listener statistics.
+  """
+  def get_stats do
+    GenServer.call(__MODULE__, :get_stats)
+  end
+
   @doc """
   Clean up old UDP clients.
   """
   def cleanup_old_clients do
     GenServer.cast(__MODULE__, :cleanup_clients)
-  end
-
-  @impl true
-  def handle_cast(:cleanup_clients, state) do
-    # 5 minutes
-    cutoff = DateTime.add(DateTime.utc_now(), -300, :second)
-
-    new_clients =
-      state.clients
-      |> Enum.filter(fn {_key, info} ->
-        DateTime.after?(info.last_seen, cutoff)
-      end)
-      |> Map.new()
-
-    {:noreply, %{state | clients: new_clients}}
   end
 end

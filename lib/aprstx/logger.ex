@@ -93,7 +93,7 @@ defmodule Aprstx.Logger do
             "#{timestamp} #{event} #{inspect(details)}"
         end
 
-      state = write_log_entry(state, :access, log_entry)
+      _new_state = write_log_entry(state, :access, log_entry)
     end
 
     {:noreply, state}
@@ -107,7 +107,7 @@ defmodule Aprstx.Logger do
 
       log_entry = "#{timestamp} #{dir_str} #{Aprstx.Packet.encode(packet)}"
 
-      state = write_log_entry(state, :packet, log_entry)
+      _new_state = write_log_entry(state, :packet, log_entry)
     end
 
     {:noreply, state}
@@ -223,34 +223,6 @@ defmodule Aprstx.Logger do
     {:reply, stats, state}
   end
 
-  defp list_log_files(log_dir) do
-    case File.ls(log_dir) do
-      {:ok, files} ->
-        files
-        |> Enum.filter(&String.ends_with?(&1, ".log"))
-        |> Enum.map(fn file ->
-          path = Path.join(log_dir, file)
-          stat = File.stat!(path)
-
-          %{
-            name: file,
-            size: stat.size,
-            modified: stat.mtime
-          }
-        end)
-
-      _ ->
-        []
-    end
-  end
-
-  @doc """
-  Export logs for a specific time range.
-  """
-  def export_logs(from_datetime, to_datetime, output_path) do
-    GenServer.call(__MODULE__, {:export_logs, from_datetime, to_datetime, output_path})
-  end
-
   @impl true
   def handle_call({:export_logs, from, to, output_path}, _from, state) do
     # This would need more complex implementation to filter by timestamp
@@ -281,6 +253,34 @@ defmodule Aprstx.Logger do
       end
 
     {:reply, result, state}
+  end
+
+  defp list_log_files(log_dir) do
+    case File.ls(log_dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".log"))
+        |> Enum.map(fn file ->
+          path = Path.join(log_dir, file)
+          stat = File.stat!(path)
+
+          %{
+            name: file,
+            size: stat.size,
+            modified: stat.mtime
+          }
+        end)
+
+      _ ->
+        []
+    end
+  end
+
+  @doc """
+  Export logs for a specific time range.
+  """
+  def export_logs(from_datetime, to_datetime, output_path) do
+    GenServer.call(__MODULE__, {:export_logs, from_datetime, to_datetime, output_path})
   end
 
   defp extract_timestamp(line) do

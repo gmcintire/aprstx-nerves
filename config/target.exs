@@ -12,19 +12,32 @@ keys =
   |> Path.join(".ssh/id_{rsa,ecdsa,ed25519}.pub")
   |> Path.wildcard()
 
+# Configure Ecto to use SQLite in the persistent /data partition
+# The /data partition in Nerves persists across firmware updates
+config :aprstx, Aprstx.Repo,
+  database: "/data/aprstx.db",
+  pool_size: 5,
+  show_sensitive_data_on_connection_error: true
+
+config :aprstx, ecto_repos: [Aprstx.Repo]
+
 config :logger, backends: [RingLogger]
 
 # Erlinit can be configured without a rootfs_overlay. See
 # https://github.com/nerves-project/erlinit/ for more information on
 # configuring erlinit.
 
+config :nerves, :erlinit, update_clock: true
+
 # Advance the system clock on devices without real-time clocks.
+
+# Use Jason for JSON parsing in Phoenix
 # Configure the device for SSH IEx prompt access and firmware updates
 #
 # * See https://hexdocs.pm/nerves_ssh/readme.html for general SSH configuration
 # * See https://hexdocs.pm/ssh_subsystem_fwup/readme.html for firmware updates
 
-config :nerves, :erlinit, update_clock: true
+config :phoenix, :json_library, Jason
 
 config :shoehorn, init: [:nerves_runtime, :nerves_pack]
 
@@ -35,6 +48,17 @@ if keys == [],
     log into the Nerves device and update firmware on it using ssh.
     See your project's config.exs for this error message.
     """)
+
+# Phoenix configuration for web interface on port 80
+config :aprstx, AprstxWeb.Endpoint,
+  url: [host: "localhost"],
+  http: [port: 80],
+  secret_key_base: "HEcwc7F+BtJsMofE2CqLsJZfHQoMx6B5ivlG0E1L7BPuQzpfVVHXkxkbKNBPqPM+",
+  render_errors: [view: AprstxWeb.ErrorView, accepts: ~w(html json)],
+  pubsub_server: Aprstx.PubSub,
+  live_view: [signing_salt: "xI3vV5RL"],
+  server: true,
+  check_origin: false
 
 config :mdns_lite,
   # The `hosts` key specifies what hostnames mdns_lite advertises.  `:hostname`
@@ -84,11 +108,10 @@ config :vintage_net,
        type: VintageNetEthernet,
        ipv4: %{method: :dhcp}
      }},
+    # Import target specific config. This must remain at the bottom
+    # of this file so it overrides the configuration defined above.
+    # Uncomment to use target specific configurations
     {"wlan0", %{type: VintageNetWiFi}}
   ]
-
-# Import target specific config. This must remain at the bottom
-# of this file so it overrides the configuration defined above.
-# Uncomment to use target specific configurations
 
 # import_config "#{Mix.target()}.exs"

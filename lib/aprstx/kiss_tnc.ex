@@ -239,9 +239,8 @@ defmodule Aprstx.KissTnc do
         new_stats = Map.update!(state.stats, :packets_sent, &(&1 + 1))
         {:noreply, %{state | stats: new_stats}}
 
-      {:error, reason} ->
-        Logger.error("Failed to encode packet: #{inspect(reason)}")
-        {:noreply, state}
+        # This clause is not needed since aprs_to_ax25 always returns {:ok, _}
+        # Keeping for future error handling if needed
     end
   end
 

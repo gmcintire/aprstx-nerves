@@ -98,6 +98,18 @@ defmodule Aprstx.Digipeater do
     end
   end
 
+  @impl true
+  def handle_cast({:update_config, config}, state) do
+    new_config = Map.merge(state.config, config)
+    {:noreply, %{state | config: new_config}}
+  end
+
+  @impl true
+  def handle_cast({:set_enabled, enabled}, state) do
+    Logger.info("Digipeater #{if enabled, do: "enabled", else: "disabled"}")
+    {:noreply, put_in(state.config.enabled, enabled)}
+  end
+
   defp should_digipeat?(packet, state, from_rf) do
     cond do
       # Don't digipeat if not from RF and direct_only is set
@@ -380,22 +392,10 @@ defmodule Aprstx.Digipeater do
     GenServer.cast(__MODULE__, {:update_config, config})
   end
 
-  @impl true
-  def handle_cast({:update_config, config}, state) do
-    new_config = Map.merge(state.config, config)
-    {:noreply, %{state | config: new_config}}
-  end
-
   @doc """
   Enable or disable digipeater.
   """
   def set_enabled(enabled) do
     GenServer.cast(__MODULE__, {:set_enabled, enabled})
-  end
-
-  @impl true
-  def handle_cast({:set_enabled, enabled}, state) do
-    Logger.info("Digipeater #{if enabled, do: "enabled", else: "disabled"}")
-    {:noreply, put_in(state.config.enabled, enabled)}
   end
 end

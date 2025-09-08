@@ -363,7 +363,7 @@ defmodule Aprstx.RoamingIgate do
     {:noreply, state}
   end
 
-  defp should_update_filter?(position, state) do
+  defp should_update_filter?(_position, state) do
     # Update filter if position changed by more than 10km
     case state.services.igate do
       nil ->

@@ -458,11 +458,22 @@ defmodule Aprstx.Beacon do
     end
   end
 
-  @doc """
-  Get beacon statistics.
-  """
-  def get_stats do
-    GenServer.call(__MODULE__, :get_stats)
+  @impl true
+  def handle_cast({:update_config, config}, state) do
+    new_config = Map.merge(state.config, config)
+    {:noreply, %{state | config: new_config}}
+  end
+
+  @impl true
+  def handle_cast({:set_enabled, enabled}, state) do
+    Logger.info("Beacon #{if enabled, do: "enabled", else: "disabled"}")
+
+    if enabled and not state.config.enabled do
+      # Start beaconing
+      schedule_next_beacon(state.config.interval)
+    end
+
+    {:noreply, put_in(state.config.enabled, enabled)}
   end
 
   @impl true
@@ -478,16 +489,17 @@ defmodule Aprstx.Beacon do
   end
 
   @doc """
+  Get beacon statistics.
+  """
+  def get_stats do
+    GenServer.call(__MODULE__, :get_stats)
+  end
+
+  @doc """
   Update beacon configuration.
   """
   def update_config(config) do
     GenServer.cast(__MODULE__, {:update_config, config})
-  end
-
-  @impl true
-  def handle_cast({:update_config, config}, state) do
-    new_config = Map.merge(state.config, config)
-    {:noreply, %{state | config: new_config}}
   end
 
   @doc """
@@ -495,17 +507,5 @@ defmodule Aprstx.Beacon do
   """
   def set_enabled(enabled) do
     GenServer.cast(__MODULE__, {:set_enabled, enabled})
-  end
-
-  @impl true
-  def handle_cast({:set_enabled, enabled}, state) do
-    Logger.info("Beacon #{if enabled, do: "enabled", else: "disabled"}")
-
-    if enabled and not state.config.enabled do
-      # Start beaconing
-      schedule_next_beacon(state.config.interval)
-    end
-
-    {:noreply, put_in(state.config.enabled, enabled)}
   end
 end

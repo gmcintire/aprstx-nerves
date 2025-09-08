@@ -128,10 +128,44 @@ defmodule Aprstx.History do
     stats =
       Map.merge(state.stats, %{
         current_size: :queue.len(state.packets),
-        max_size: state.max_size
+        max_size: state.max_size,
+        memory_usage: :erlang.process_info(self(), :memory) |> elem(1)
       })
 
     {:reply, stats, state}
+  end
+
+  @impl true
+  def handle_call({:position_history, callsign, limit}, _from, state) do
+    positions =
+      case Map.get(state.index, callsign) do
+        nil ->
+          []
+
+        packets ->
+          packets
+          |> Enum.filter(&position_packet?/1)
+          |> Enum.map(&extract_position_data/1)
+          |> Enum.reject(&is_nil/1)
+          |> Enum.take(limit)
+      end
+
+    {:reply, positions, state}
+  end
+
+  @impl true
+  def handle_call({:export, path}, _from, state) do
+    packets = :queue.to_list(state.packets)
+
+    content = Enum.map_join(packets, "\n", &Aprstx.Packet.encode/1)
+
+    case File.write(path, content) do
+      :ok ->
+        {:reply, {:ok, length(packets)}, state}
+
+      error ->
+        {:reply, error, state}
+    end
   end
 
   defp ensure_timestamp(packet) do
@@ -200,24 +234,6 @@ defmodule Aprstx.History do
     GenServer.call(__MODULE__, {:position_history, callsign, limit})
   end
 
-  @impl true
-  def handle_call({:position_history, callsign, limit}, _from, state) do
-    positions =
-      case Map.get(state.index, callsign) do
-        nil ->
-          []
-
-        packets ->
-          packets
-          |> Enum.filter(&position_packet?/1)
-          |> Enum.map(&extract_position_data/1)
-          |> Enum.reject(&is_nil/1)
-          |> Enum.take(limit)
-      end
-
-    {:reply, positions, state}
-  end
-
   defp position_packet?(packet) do
     packet.type in [
       :position_no_timestamp,
@@ -250,26 +266,6 @@ defmodule Aprstx.History do
     GenServer.cast(__MODULE__, {:clear, callsign})
   end
 
-  @impl true
-  def handle_cast({:clear, nil}, state) do
-    # Clear all history
-    {:noreply, %{state | packets: :queue.new(), index: %{}}}
-  end
-
-  @impl true
-  def handle_cast({:clear, callsign}, state) do
-    # Clear history for specific callsign
-    new_index = Map.delete(state.index, callsign)
-
-    new_packets =
-      state.packets
-      |> :queue.to_list()
-      |> Enum.reject(&(&1.source == callsign))
-      |> :queue.from_list()
-
-    {:noreply, %{state | packets: new_packets, index: new_index}}
-  end
-
   @doc """
   Export history to file.
   """
@@ -277,18 +273,11 @@ defmodule Aprstx.History do
     GenServer.call(__MODULE__, {:export, path})
   end
 
-  @impl true
-  def handle_call({:export, path}, _from, state) do
-    packets = :queue.to_list(state.packets)
-
-    content = Enum.map_join(packets, "\n", &Aprstx.Packet.encode/1)
-
-    case File.write(path, content) do
-      :ok ->
-        {:reply, {:ok, length(packets)}, state}
-
-      error ->
-        {:reply, error, state}
-    end
+  @doc """
+  Get history statistics.
+  """
+  def get_stats do
+    GenServer.call(__MODULE__, :get_stats)
   end
+
 end

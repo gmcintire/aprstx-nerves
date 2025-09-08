@@ -11,6 +11,15 @@ defmodule Aprstx.Application do
 
     children =
       [
+        # Database (will create /data/aprstx.db on first run)
+        Aprstx.Repo,
+
+        # Phoenix PubSub
+        {Phoenix.PubSub, name: Aprstx.PubSub},
+
+        # Phoenix Endpoint (web interface on port 80)
+        AprstxWeb.Endpoint,
+
         # Core services
         {Aprstx.Logger, config[:logger] || []},
         {Aprstx.Stats, []},
@@ -23,7 +32,7 @@ defmodule Aprstx.Application do
         {Aprstx.Server, config[:server] || []},
         {Aprstx.UdpListener, config[:udp] || []},
 
-        # HTTP services
+        # Old HTTP services (can be removed later)
         {Plug.Cowboy, scheme: :http, plug: Aprstx.HttpApi, options: [port: 8080]},
         {Plug.Cowboy, scheme: :http, plug: Aprstx.StatusPage, options: [port: 8081]}
       ] ++

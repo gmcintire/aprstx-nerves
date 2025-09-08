@@ -1,6 +1,25 @@
 import Config
 
-# Add configuration that is only needed when running on the host here.
+# Database configuration for host development
+config :aprstx, Aprstx.Repo,
+  database: "priv/repo/aprstx_dev.db",
+  pool_size: 5,
+  show_sensitive_data_on_connection_error: true
+
+# Phoenix endpoint for development
+config :aprstx, AprstxWeb.Endpoint,
+  url: [host: "localhost"],
+  http: [port: 4000],
+  secret_key_base: "HEcwc7F+BtJsMofE2CqLsJZfHQoMx6B5ivlG0E1L7BPuQzpfVVHXkxkbKNBPqPM+",
+  render_errors: [view: AprstxWeb.ErrorView, accepts: ~w(html json)],
+  pubsub_server: Aprstx.PubSub,
+  live_view: [signing_salt: "xI3vV5RL"],
+  server: true,
+  debug_errors: true,
+  code_reloader: true,
+  check_origin: false
+
+config :aprstx, ecto_repos: [Aprstx.Repo]
 
 config :nerves_runtime,
   kv_backend:
@@ -19,3 +38,8 @@ config :nerves_runtime,
        "a.nerves_fw_platform" => "host",
        "a.nerves_fw_version" => "0.0.0"
      }}
+
+# Add configuration that is only needed when running on the host here.
+
+# Phoenix configuration for host development
+config :phoenix, :json_library, Jason

@@ -174,7 +174,7 @@ defmodule Aprstx.Peer do
   end
 
   @impl true
-  def handle_info({:reconnect, peer_id, config}, state) do
+  def handle_info({:reconnect, _peer_id, config}, state) do
     connect_to_peer(config)
     {:noreply, state}
   end
@@ -314,6 +314,24 @@ defmodule Aprstx.Peer do
     {:reply, socket, state}
   end
 
+  @impl true
+  def handle_call(:get_stats, _from, state) do
+    stats = %{
+      connected_peers: map_size(state.connections),
+      configured_peers: map_size(state.peers),
+      connections:
+        Enum.map(state.connections, fn {id, conn} ->
+          %{
+            peer_id: id,
+            connected_at: conn.connected_at,
+            stats: conn.stats
+          }
+        end)
+    }
+
+    {:reply, stats, state}
+  end
+
   defp seen_before?(_packet, _peer_id) do
     # Could implement loop detection here
     false
@@ -340,23 +358,5 @@ defmodule Aprstx.Peer do
   """
   def get_stats do
     GenServer.call(__MODULE__, :get_stats)
-  end
-
-  @impl true
-  def handle_call(:get_stats, _from, state) do
-    stats = %{
-      connected_peers: map_size(state.connections),
-      configured_peers: map_size(state.peers),
-      connections:
-        Enum.map(state.connections, fn {id, conn} ->
-          %{
-            peer_id: id,
-            connected_at: conn.connected_at,
-            stats: conn.stats
-          }
-        end)
-    }
-
-    {:reply, stats, state}
   end
 end
