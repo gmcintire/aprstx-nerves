@@ -257,7 +257,7 @@ defmodule Aprstx.RoamingIgate do
         filter: build_dynamic_filter(state)
       ]
 
-      case Aprstx.Uplink.start_link(opts) do
+      case Aprstx.AprsIsClient.start_link(opts) do
         {:ok, pid} ->
           Logger.info("iGate service started")
           put_in(state.services.igate, pid)

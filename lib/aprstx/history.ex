@@ -129,7 +129,7 @@ defmodule Aprstx.History do
       Map.merge(state.stats, %{
         current_size: :queue.len(state.packets),
         max_size: state.max_size,
-        memory_usage: :erlang.process_info(self(), :memory) |> elem(1)
+        memory_usage: self() |> :erlang.process_info(:memory) |> elem(1)
       })
 
     {:reply, stats, state}
@@ -279,5 +279,4 @@ defmodule Aprstx.History do
   def get_stats do
     GenServer.call(__MODULE__, :get_stats)
   end
-
 end

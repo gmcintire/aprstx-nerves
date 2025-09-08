@@ -130,11 +130,10 @@ defmodule Aprstx.UdpListener do
 
           packet = Aprstx.QConstruct.process(packet, client_info)
 
-          # Broadcast to TCP clients
-          GenServer.cast(Aprstx.Server, {:broadcast, packet, :udp})
-
-          # Forward to peers
-          Aprstx.Peer.broadcast_to_peers(packet)
+          # Broadcast to TCP clients if server is running
+          if Process.whereis(Aprstx.Server) do
+            GenServer.cast(Aprstx.Server, {:broadcast, packet, :udp})
+          end
 
           # Send to other UDP clients if bidirectional
           if state.mode == :bidirectional do

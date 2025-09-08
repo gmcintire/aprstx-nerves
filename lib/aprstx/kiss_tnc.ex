@@ -228,6 +228,10 @@ defmodule Aprstx.KissTnc do
     GenServer.cast(__MODULE__, {:send_packet, packet})
   end
 
+  def send_packet(pid, packet) when is_pid(pid) or is_atom(pid) do
+    GenServer.cast(pid, {:send_packet, packet})
+  end
+
   @impl true
   def handle_cast({:send_packet, packet}, state) do
     # Convert APRS packet to AX.25

@@ -239,9 +239,10 @@ defmodule Aprstx.Beacon do
       Aprstx.KissTnc.send_packet(packet)
     end
 
-    # Also send to APRS-IS
-    GenServer.cast(Aprstx.Server, {:broadcast, packet, :beacon})
-    Aprstx.Uplink.send_packet(packet)
+    # Also send to APRS-IS if connected
+    if Process.whereis(Aprstx.AprsIsClient) do
+      Aprstx.AprsIsClient.send_packet(packet)
+    end
 
     Logger.info("Beacon sent: #{Aprstx.Packet.encode(packet)}")
 
@@ -290,8 +291,10 @@ defmodule Aprstx.Beacon do
       Aprstx.KissTnc.send_packet(packet)
     end
 
-    # Also send to APRS-IS
-    GenServer.cast(Aprstx.Server, {:broadcast, packet, :beacon})
+    # Also send to APRS-IS if connected
+    if Process.whereis(Aprstx.AprsIsClient) do
+      Aprstx.AprsIsClient.send_packet(packet)
+    end
 
     Logger.info("Status beacon sent: #{Aprstx.Packet.encode(packet)}")
 

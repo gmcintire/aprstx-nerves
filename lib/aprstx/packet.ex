@@ -96,6 +96,12 @@ defmodule Aprstx.Packet do
   defp detect_packet_type(_), do: :unknown
 
   @doc """
+  Decode an APRS packet from raw string format.
+  Alias for parse/1 for compatibility.
+  """
+  def decode(raw), do: parse(raw)
+
+  @doc """
   Encode a packet structure back to APRS format.
   """
   def encode(%__MODULE__{} = packet) do

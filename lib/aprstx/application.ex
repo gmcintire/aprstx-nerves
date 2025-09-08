@@ -1,26 +1,28 @@
 defmodule Aprstx.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
-  @moduledoc false
-
+  @moduledoc """
+  Main application supervisor for aprx functionality.
+  """
   use Application
 
   @impl true
   def start(_type, _args) do
     config = Application.get_all_env(:aprstx)
 
+    # Load configuration from database after Repo starts
+    # This will be done via a task after the supervisor starts
+
+    # Main aprx coordinator - starts last
     children =
       [
-        # Database (will create /data/aprstx.db on first run)
+        # Database (for persistent configuration)
         Aprstx.Repo,
 
-        # Phoenix PubSub
+        # Phoenix web interface
         {Phoenix.PubSub, name: Aprstx.PubSub},
-
-        # Phoenix Endpoint (web interface on port 80)
         AprstxWeb.Endpoint,
 
         # Core services
+        {Registry, keys: :unique, name: Aprstx.TncRegistry},
         {Aprstx.Logger, config[:logger] || []},
         {Aprstx.Stats, []},
         {Aprstx.DuplicateFilter, []},
@@ -28,71 +30,99 @@ defmodule Aprstx.Application do
         {Aprstx.ACL, config[:acl] || []},
         {Aprstx.MessageHandler, []},
 
-        # Network servers
-        {Aprstx.Server, config[:server] || []},
-        {Aprstx.UdpListener, config[:udp] || []},
+        # Digipeater with viscous delay
+        {Aprstx.Digipeater, config[:digipeater] || []},
 
-        # Old HTTP services (can be removed later)
-        {Plug.Cowboy, scheme: :http, plug: Aprstx.HttpApi, options: [port: 8080]},
-        {Plug.Cowboy, scheme: :http, plug: Aprstx.StatusPage, options: [port: 8081]}
+        # RF gating logic
+        {Aprstx.RfGate, config[:rf_gate] || []},
+
+        # Beaconing
+        {Aprstx.Beacon, config[:beacon] || []},
+
+        # UDP listener (for UDP kiss, etc)
+        {Aprstx.UdpListener, config[:udp] || []}
       ] ++
-        uplink_children(config) ++
-        ssl_children(config) ++
-        kiss_children(config) ++
-        peer_children(config) ++
+        gps_children(config) ++
         roaming_children(config) ++
+        kiss_children(config) ++
+        [{Aprstx.Aprx, config[:aprx] || []}] ++
         target_children()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Aprstx.Supervisor]
-    Supervisor.start_link(children, opts)
-  end
 
-  defp uplink_children(config) do
-    case config[:uplink] do
-      nil -> []
-      uplink_config -> [{Aprstx.Uplink, uplink_config}]
+    case Supervisor.start_link(children, opts) do
+      {:ok, pid} ->
+        # Load and apply configuration from database after everything starts
+        Task.start(fn ->
+          # Give services a moment to initialize
+          Process.sleep(1000)
+
+          # Try to load configuration from database
+          case Aprstx.Config.load_and_apply() do
+            :ok ->
+              IO.puts("Configuration loaded from database")
+
+            {:error, :not_configured} ->
+              IO.puts("No configuration found - please complete setup wizard")
+
+            {:error, reason} ->
+              IO.puts("Failed to load configuration: #{inspect(reason)}")
+          end
+        end)
+
+        {:ok, pid}
+
+      error ->
+        error
     end
   end
 
-  defp ssl_children(config) do
-    case config[:ssl] do
-      nil -> []
-      ssl_config -> [{Aprstx.SslServer, ssl_config}]
+  # Tell Phoenix to update the endpoint configuration
+  # whenever the application is updated.
+  @impl true
+  def config_change(changed, _new, removed) do
+    AprstxWeb.Endpoint.config_change(changed, removed)
+    :ok
+  end
+
+  defp gps_children(config) do
+    case config[:gps] do
+      nil ->
+        []
+
+      gps_config when is_list(gps_config) ->
+        if Keyword.get(gps_config, :enabled, false) do
+          [{Aprstx.GPS, gps_config}]
+        else
+          []
+        end
+    end
+  end
+
+  defp roaming_children(config) do
+    case config[:roaming_igate] do
+      nil ->
+        []
+
+      roaming_config when is_list(roaming_config) ->
+        if Keyword.get(roaming_config, :enabled, false) do
+          [{Aprstx.RoamingIgate, roaming_config}]
+        else
+          []
+        end
     end
   end
 
   defp kiss_children(config) do
     case config[:kiss] do
-      nil -> []
-      kiss_config -> [{Aprstx.KissTnc, kiss_config}]
-    end
-  end
-
-  defp peer_children(config) do
-    case config[:peers] do
-      nil -> []
-      peer_config -> [{Aprstx.Peer, peer_config}]
-    end
-  end
-
-  defp roaming_children(config) do
-    # Start roaming iGate components if configured
-    case config[:roaming_igate] do
       nil ->
         []
 
-      roaming_config ->
-        if roaming_config[:enabled] == true do
-          # GPS, Digipeater, Beacon are managed by RoamingIgate
-          # so we start the coordinator
-          [
-            {Aprstx.GPS, config[:gps] || []},
-            {Aprstx.Digipeater, config[:digipeater] || []},
-            {Aprstx.Beacon, config[:beacon] || []},
-            {Aprstx.RoamingIgate, roaming_config}
-          ]
+      kiss_config when is_list(kiss_config) ->
+        if Keyword.get(kiss_config, :enabled, false) do
+          [{Aprstx.KissTnc, kiss_config}]
         else
           []
         end
@@ -105,17 +135,13 @@ defmodule Aprstx.Application do
       [
         # Children that only run on the host during development or test.
         # In general, prefer using `config/host.exs` for differences.
-        #
-        # Starts a worker by calling: Host.Worker.start_link(arg)
-        # {Host.Worker, arg},
       ]
     end
   else
     defp target_children do
       [
         # Children for all targets except host
-        # Starts a worker by calling: Target.Worker.start_link(arg)
-        # {Target.Worker, arg},
+        # For Nerves targets
       ]
     end
   end

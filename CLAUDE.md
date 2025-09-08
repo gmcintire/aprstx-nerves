@@ -1,1 +1,2 @@
 - ensure there is always a test written first for a feature, then write the code to satisfy the test
+- run mix.format when code is done

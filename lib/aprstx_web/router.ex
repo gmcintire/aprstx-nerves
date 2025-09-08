@@ -9,6 +9,7 @@ defmodule AprstxWeb.Router do
     plug(:fetch_live_flash)
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+    plug(AprstxWeb.Plugs.RequireConfig)
   end
 
   pipeline :api do
@@ -19,6 +20,7 @@ defmodule AprstxWeb.Router do
     pipe_through(:browser)
 
     get("/", PageController, :index)
+    live("/setup", SetupWizardLive)
     live("/dashboard", DashboardLive)
   end
 
